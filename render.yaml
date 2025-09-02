@@ -3,7 +3,7 @@ services:
     name: polymarket-discord-bot
     env: python
     plan: free
-    region: spain
+    region: frankfurt
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python bot.py"
     envVars:
