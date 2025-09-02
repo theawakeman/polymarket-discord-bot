@@ -1,5 +1,5 @@
 services:
-  - type: worker
+  - type: web
     name: polymarket-discord-bot
     env: python
     plan: free
