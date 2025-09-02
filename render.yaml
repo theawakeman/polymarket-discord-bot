@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: polymarket-discord-bot
+    env: python
+    plan: free
+    region: frankfurt
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot.py"
+    envVars:
+      - key: DISCORD_WEBHOOK
+        sync: false
+      - key: POLYMARKET_POLL_SEC
+        value: "60"
+      - key: KEYWORDS
+        value: ""
+      - key: STATE_FILE
+        value: "state.json"
