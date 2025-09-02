@@ -1,7 +1,5 @@
-import os
-import time
-import json
-import requests
+import os, time, json, requests, threading
+from flask import Flask
 
 API_URL = os.getenv("POLYMARKET_API", "https://clob.polymarket.com/markets")
 DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")  # REQUIRED
@@ -30,13 +28,10 @@ def passes_filter(market):
     return any(k in q for k in KEYWORDS)
 
 def build_url(market):
-    # Try to use provided URL if any; else construct from slug if available
-    if "url" in market and market["url"]:
+    if market.get("url"):
         return market["url"]
     slug = market.get("slug") or ""
-    if slug:
-        return f"https://polymarket.com/event/{slug}"
-    return ""
+    return f"https://polymarket.com/event/{slug}" if slug else ""
 
 def send_discord_alert(market):
     if not DISCORD_WEBHOOK:
@@ -45,9 +40,8 @@ def send_discord_alert(market):
     title = market.get("question") or market.get("title") or "Nuevo mercado"
     url = build_url(market)
     content = f"🆕 **Nuevo mercado en Polymarket**\n**{title}**\n{url}"
-    payload = {"content": content}
     try:
-        r = requests.post(DISCORD_WEBHOOK, json=payload, timeout=10)
+        r = requests.post(DISCORD_WEBHOOK, json={"content": content}, timeout=10)
         if r.status_code >= 300:
             print("Discord webhook error:", r.status_code, r.text[:200])
     except Exception as e:
@@ -58,14 +52,12 @@ def fetch_markets():
         r = requests.get(API_URL, timeout=15)
         r.raise_for_status()
         data = r.json()
-        if isinstance(data, list):
-            return data
-        return data.get("markets", [])
+        return data if isinstance(data, list) else data.get("markets", [])
     except Exception as e:
         print("Fetch error:", e)
         return []
 
-def main():
+def bot_loop():
     known = load_state()
     print("Bot iniciado. Poll:", POLL_SEC, "s. Filtro KEYWORDS:", KEYWORDS)
     first_cycle = True
@@ -86,5 +78,15 @@ def main():
             first_cycle = False
         time.sleep(POLL_SEC)
 
+# --- Mini servidor web para Render (salud) ---
+app = Flask(__name__)
+
+@app.get("/")
+def health():
+    return "ok", 200
+
 if __name__ == "__main__":
-    main()
+    # Bot en un hilo en segundo plano
+    threading.Thread(target=bot_loop, daemon=True).start()
+    # Servidor web (Render asigna el puerto por variable PORT)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "10000")))
